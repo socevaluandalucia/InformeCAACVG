@@ -65,7 +65,7 @@
     body{margin:0;font-family:Arial,sans-serif;background:var(--fondo);color:#222}
     .app-header{
       display:flex;align-items:center;justify-content:space-between;gap:20px;
-      padding:16px 28px;background:#fff;border-bottom:2px solid var(--borde)
+      padding:16px 28px;background:#e8f4f0;border-bottom:2px solid #a8d5c5
     }
     .app-header img{display:block;max-height:110px;height:auto;width:auto;object-fit:contain}
     .app-header-left,.app-header-right{flex:0 0 320px;display:flex;align-items:center}
@@ -1075,7 +1075,7 @@
     </div>
     <div class="app-header-center">
       <div class="app-header-title">Gestor de informes</div>
-      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.0</span></div>
+      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.1</span></div>
     </div>
     <div class="app-header-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
       <div id="userNameDisplay" style="font-size:12px;color:#666;text-align:right;min-height:16px;width:100%;"></div>
@@ -2164,7 +2164,7 @@ function renderStructuredTitle(rawTitle='') {
   const selfEvalStartDate = String(currentData?.selfEvalStartDate || '').trim();
   const externalEvalDate = String(currentData?.externalEvalDate || '').trim();
 
-  const evaluatorComplete = !!leadEvaluator && !!evaluator;
+  const evaluatorComplete = !!leadEvaluator;
   const responsibleComplete = !!centerManagement && !!certificationResponsible;
 
   let versionInfo = '';
@@ -2214,26 +2214,7 @@ function renderStructuredTitle(rawTitle='') {
                     <option value="Dña. Victoria Eugenia Ruano García" ${leadEvaluator === 'Dña. Victoria Eugenia Ruano García' ? 'selected' : ''}>Dña. Victoria Eugenia Ruano García</option>
                   </select>
                 </div>
-                <div class="title-editor-row">
-                  <label for="evaluatorInput">Evaluador</label>
-                  <select id="evaluatorInput" class="code-box">
-                    <option value=""></option>
-                    <option value="Dña. Antonia Vázquez González" ${evaluator === 'Dña. Antonia Vázquez González' ? 'selected' : ''}>Dña. Antonia Vázquez González</option>
-                    <option value="Dña. Bárbara Torres Verdu" ${evaluator === 'Dña. Bárbara Torres Verdu' ? 'selected' : ''}>Dña. Bárbara Torres Verdu</option>
-                    <option value="D. Julio Piedra Cristobal" ${evaluator === 'D. Julio Piedra Cristobal' ? 'selected' : ''}>D. Julio Piedra Cristobal</option>
-                    <option value="Dña. Leticia García Panal" ${evaluator === 'Dña. Leticia García Panal' ? 'selected' : ''}>Dña. Leticia García Panal</option>
-                    <option value="D. Luis Carlos Valero Balboa" ${evaluator === 'D. Luis Carlos Valero Balboa' ? 'selected' : ''}>D. Luis Carlos Valero Balboa</option>
-                    <option value="Dña. Mª del Mar Sánchez Gila" ${evaluator === 'Dña. Mª del Mar Sánchez Gila' ? 'selected' : ''}>Dña. Mª del Mar Sánchez Gila</option>
-                    <option value="Dña. Mª Teresa Medina Duque" ${evaluator === 'Dña. Mª Teresa Medina Duque' ? 'selected' : ''}>Dña. Mª Teresa Medina Duque</option>
-                    <option value="Dña. María José Castro Ruiz" ${evaluator === 'Dña. María José Castro Ruiz' ? 'selected' : ''}>Dña. María José Castro Ruiz</option>
-                    <option value="D. Miiguel Prieto Domínguez" ${evaluator === 'D. Miiguel Prieto Domínguez' ? 'selected' : ''}>D. Miiguel Prieto Domínguez</option>
-                    <option value="Dña. Olga Orozco Roldán" ${evaluator === 'Dña. Olga Orozco Roldán' ? 'selected' : ''}>Dña. Olga Orozco Roldán</option>
-                    <option value="D. Rafael Romero de Castilla Gil" ${evaluator === 'D. Rafael Romero de Castilla Gil' ? 'selected' : ''}>D. Rafael Romero de Castilla Gil</option>
-                    <option value="D. Raúl Pérez González" ${evaluator === 'D. Raúl Pérez González' ? 'selected' : ''}>D. Raúl Pérez González</option>
-                    <option value="Dña. Sara Haydee Constenia" ${evaluator === 'Dña. Sara Haydee Constenia' ? 'selected' : ''}>Dña. Sara Haydee Constenia</option>
-                    <option value="Dña. Victoria Eugenia Ruano García" ${evaluator === 'Dña. Victoria Eugenia Ruano García' ? 'selected' : ''}>Dña. Victoria Eugenia Ruano García</option>
-                  </select>
-                </div>
+
               </div>
             </details>
             <details class="top-panel">
@@ -2274,7 +2255,6 @@ function syncEditableHeader() {
   const centerInput = document.getElementById('centerInput');
   const codeInput = document.getElementById('projectCodeInput');
   const leadEvaluatorInput = document.getElementById('leadEvaluatorInput');
-  const evaluatorInput = document.getElementById('evaluatorInput');
   const centerManagementInput = document.getElementById('centerManagementInput');
   const certificationResponsibleInput = document.getElementById('certificationResponsibleInput');
   const selfEvalStartDateInput = document.getElementById('selfEvalStartDateInput');
@@ -2283,7 +2263,6 @@ function syncEditableHeader() {
   const centerVal = String(centerInput?.value ?? currentData?.centerName ?? '').toUpperCase();
   const codeVal = String(codeInput?.value ?? currentData?.projectCode ?? '');
   const leadEvaluatorVal = String(leadEvaluatorInput?.value ?? currentData?.leadEvaluator ?? '');
-  const evaluatorVal = String(evaluatorInput?.value ?? currentData?.evaluator ?? '');
   const centerManagementVal = String(centerManagementInput?.value ?? currentData?.centerManagement ?? '');
   const certificationResponsibleVal = String(certificationResponsibleInput?.value ?? currentData?.certificationResponsible ?? '');
   const selfEvalStartDateVal = String(selfEvalStartDateInput?.value ?? currentData?.selfEvalStartDate ?? '');
@@ -2292,7 +2271,6 @@ function syncEditableHeader() {
   if (centerInput && centerInput.value !== centerVal) centerInput.value = centerVal;
   if (codeInput && codeInput.value !== codeVal) codeInput.value = codeVal;
   if (leadEvaluatorInput && leadEvaluatorInput.value !== leadEvaluatorVal) leadEvaluatorInput.value = leadEvaluatorVal;
-  if (evaluatorInput && evaluatorInput.value !== evaluatorVal) evaluatorInput.value = evaluatorVal;
   if (centerManagementInput && centerManagementInput.value !== centerManagementVal) centerManagementInput.value = centerManagementVal;
   if (certificationResponsibleInput && certificationResponsibleInput.value !== certificationResponsibleVal) certificationResponsibleInput.value = certificationResponsibleVal;
   if (selfEvalStartDateInput && selfEvalStartDateInput.value !== selfEvalStartDateVal) selfEvalStartDateInput.value = selfEvalStartDateVal;
@@ -2302,7 +2280,6 @@ function syncEditableHeader() {
     currentData.centerName = centerVal;
     currentData.projectCode = codeVal;
     currentData.leadEvaluator = leadEvaluatorVal;
-    currentData.evaluator = evaluatorVal;
     currentData.centerManagement = centerManagementVal;
     currentData.certificationResponsible = certificationResponsibleVal;
     currentData.selfEvalStartDate = selfEvalStartDateVal;
@@ -2320,7 +2297,6 @@ function syncEvaluationOutcomeFromSelect() {
 
 function updateTopPanelStatuses() {
   const leadEvaluator = String(document.getElementById('leadEvaluatorInput')?.value || currentData?.leadEvaluator || '').trim();
-  const evaluator = String(document.getElementById('evaluatorInput')?.value || currentData?.evaluator || '').trim();
   const centerManagement = String(document.getElementById('centerManagementInput')?.value || currentData?.centerManagement || '').trim();
   const certificationResponsible = String(document.getElementById('certificationResponsibleInput')?.value || currentData?.certificationResponsible || '').trim();
 
@@ -2328,7 +2304,7 @@ function updateTopPanelStatuses() {
   const centerStatus = document.getElementById('centerStatus');
 
   if (teamStatus) {
-    const ok = !!leadEvaluator && !!evaluator;
+    const ok = !!leadEvaluator;
     teamStatus.textContent = ok ? 'Completado' : 'Pendiente';
     teamStatus.classList.toggle('pending', !ok);
   }
@@ -2348,7 +2324,7 @@ document.addEventListener('input', (ev) => {
     updateTopPanelStatuses();
     saveLocalData();
   }
-  if (ev.target && (ev.target.id === 'projectCodeInput' || ev.target.id === 'leadEvaluatorInput' || ev.target.id === 'evaluatorInput' || ev.target.id === 'centerManagementInput' || ev.target.id === 'certificationResponsibleInput' || ev.target.id === 'selfEvalStartDateInput' || ev.target.id === 'externalEvalDateInput')) {
+  if (ev.target && (ev.target.id === 'projectCodeInput' || ev.target.id === 'leadEvaluatorInput' || ev.target.id === 'centerManagementInput' || ev.target.id === 'certificationResponsibleInput' || ev.target.id === 'selfEvalStartDateInput' || ev.target.id === 'externalEvalDateInput')) {
     clearMissingFieldHighlight(ev.target);
     syncEditableHeader();
     updateTopPanelStatuses();
@@ -2357,7 +2333,7 @@ document.addEventListener('input', (ev) => {
 });
 
 document.addEventListener('change', (ev) => {
-  if (ev.target && (ev.target.id === 'leadEvaluatorInput' || ev.target.id === 'evaluatorInput' || ev.target.id === 'selfEvalStartDateInput' || ev.target.id === 'externalEvalDateInput')) {
+  if (ev.target && (ev.target.id === 'leadEvaluatorInput' || ev.target.id === 'selfEvalStartDateInput' || ev.target.id === 'externalEvalDateInput')) {
     clearMissingFieldHighlight(ev.target);
     syncEditableHeader();
     updateTopPanelStatuses();
@@ -2688,10 +2664,6 @@ async function generateCoverPdf() {
   let evalY = blockTop + 14;
   if (leadEvaluator) {
     doc.text(leadEvaluator, centerLineX + 10, evalY);
-    evalY += 12;
-  }
-  if (evaluator) {
-    doc.text(evaluator, centerLineX + 10, evalY);
     evalY += 12;
   }
 
@@ -3399,7 +3371,7 @@ async function generateCoverPdf() {
     state.y += 16;
 
     if (isPendingStandards) {
-      state = addContinuationParagraph(state, 'El centro dispone de hasta un máximo de 90 días desde la comunicación del resultado para dar respuesta a los estándares que no han superado la evaluación, obligatoriamente en los estándares esenciales y de forma opcional los estándares no esenciales no cumplidos, debiendo alcanzar el mínimo establecido (24 estándares).', { skipEnsure: true });
+      state = addContinuationParagraph(state, 'El centro dispone de hasta un máximo de 60 días desde la comunicación del resultado para dar respuesta a los estándares que no han superado la evaluación, obligatoriamente en los estándares esenciales y de forma opcional los estándares no esenciales no cumplidos, debiendo alcanzar el mínimo establecido (18 estándares).', { skipEnsure: true });
       state = addBeltIaPendingParagraph(state);
       state = addContinuationParagraph(state, 'Del mismo modo, el centro deberá actualizar la información aportada en aquellos estándares esenciales y elementos orientativos imprescindibles que puedan comprometer el mantenimiento de la certificación.');
       state = addContinuationParagraph(state, 'Una vez se finalice esta fase, el equipo evaluador revisará los datos e informaciones aportadas para determinar si ofrecen garantía de que los requisitos de certificación (porcentaje mínimo de estándares y estándares esenciales) se consiguen. Durante este periodo todos los canales de comunicación entre el centro y la Agencia de Calidad Sanitaria de Andalucía permanecerán abiertos.');
