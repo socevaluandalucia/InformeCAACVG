@@ -1075,7 +1075,7 @@
     </div>
     <div class="app-header-center">
       <div class="app-header-title">Gestor de informes</div>
-      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.4</span></div>
+      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.10</span></div>
     </div>
     <div class="app-header-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
       <div id="userNameDisplay" style="font-size:12px;color:#666;text-align:right;min-height:16px;width:100%;"></div>
@@ -2471,12 +2471,21 @@ function formatSignatureDateSpanish(date=new Date()) {
 
 
 function toTitleCaseSpanish(text='') {
-  const lower = String(text || '').toLocaleLowerCase('es-ES').trim();
+  const original = String(text || '').trim();
+  const lower = original.toLocaleLowerCase('es-ES');
+  const originalTokens = original.split(/(\s+)/);
   const smallWords = new Set(['de','del','la','las','el','los','y','e','a','en','por','para','con','sin','o','u']);
   return lower
     .split(/(\s+)/)
     .map((token, index) => {
       if (/^\s+$/.test(token)) return token;
+      // Preservar siglas: puntos intercalados (C.T.A.) o palabra corta toda mayúsculas (≤4 letras: UCA, CTA)
+      const origToken = originalTokens[index] || '';
+      const origCore = origToken.replace(/^[(]+|[).,:;]+$/g, '');
+      const isDotAcronym = /^([A-ZÁÉÍÓÚÜÑ]\.){2,}[A-ZÁÉÍÓÚÜÑ]?$/.test(origCore);
+      const coreNorm = origCore.toLocaleLowerCase('es-ES');
+      const isShortAcronym = /^[A-ZÁÉÍÓÚÜÑ]{2,4}$/.test(origCore) && !smallWords.has(coreNorm);
+      if (isDotAcronym || isShortAcronym) return origToken;
       const normalized = token.replace(/[.,;:()]/g, '');
       if (index > 0 && smallWords.has(normalized)) return token;
       return token.replace(/(^|[\-\/(])([a-záéíóúüñ])/g, (match, sep, ch) => sep + ch.toLocaleUpperCase('es-ES'));
@@ -2564,7 +2573,7 @@ async function generateCoverPdf() {
     doc.rect(0, 0, pageW, pageH, 'F');
     const topY = 9.8;
 
-    if (logoAjunta) {
+    if (logoAjunta) { // logo Andalucía (izquierda)
       const fitA = fitBox(logoAjunta.width, logoAjunta.height, 13.5, 10.5);
       doc.addImage(logoAjunta.dataUrl, 'PNG', margin, topY + 1.5, fitA.w, fitA.h);
     }
@@ -2582,7 +2591,31 @@ async function generateCoverPdf() {
     doc.setTextColor(50, 50, 50);
     doc.text('Informe de evaluación', textRight, topY + 4.2, { align: 'right' });
     doc.text(pdfCode || '', textRight, topY + 8.4, { align: 'right' });
-    const centerHeaderLines = doc.splitTextToSize(pdfCenter || '', 74).slice(0, 2);
+    const headerTextWidth = textRight - margin - 14;
+    // Reparto equilibrado: si el texto necesita 2 líneas, buscar el corte más centrado
+    function balancedHeaderLines(text, maxW) {
+      const words = (text || '').split(' ');
+      if (words.length <= 1) return [text];
+      // Comprobar si cabe en una línea
+      if (doc.getTextWidth(text) <= maxW) return [text];
+      // Buscar el punto de corte más equilibrado (mitad del total de caracteres)
+      const totalChars = text.length;
+      let bestBreak = 0, bestDiff = Infinity;
+      let running = 0;
+      for (let i = 0; i < words.length - 1; i++) {
+        running += words[i].length + 1;
+        const diff = Math.abs(running - totalChars / 2);
+        if (diff < bestDiff) { bestDiff = diff; bestBreak = i + 1; }
+      }
+      const line1 = words.slice(0, bestBreak).join(' ');
+      const line2 = words.slice(bestBreak).join(' ');
+      // Si alguna línea sigue siendo demasiado larga, dejar que splitTextToSize actúe
+      if (doc.getTextWidth(line1) > maxW || doc.getTextWidth(line2) > maxW) {
+        return doc.splitTextToSize(text, maxW).slice(0, 3);
+      }
+      return [line1, line2];
+    }
+    const centerHeaderLines = balancedHeaderLines(pdfCenter, headerTextWidth);
     doc.text(centerHeaderLines, textRight, topY + 12.6, { align: 'right' });
 
 
@@ -2690,7 +2723,9 @@ async function generateCoverPdf() {
   doc.setTextColor(40, 40, 40);
   doc.setFontSize(11.5);
   const pdfCenterTitle = toTitleCaseSpanish(pdfCenter);
-  const p1 = `El alcance de la evaluación corresponde al centro ${pdfCenterTitle}.`;
+  const p1 = /^Centro\b/.test(pdfCenterTitle.trim())
+    ? `El alcance de la evaluación corresponde al ${pdfCenterTitle.trim()}.`
+    : `El alcance de la evaluación corresponde al centro ${pdfCenterTitle.trim()}.`;
   const p1Lines = doc.splitTextToSize(p1, pageW - margin * 2);
   drawJustifiedPdfParagraph(p1Lines, margin, y3, pageW - margin * 2, 6.2, false);
   y3 += p1Lines.length * 6.2 + 14;
@@ -2707,7 +2742,7 @@ async function generateCoverPdf() {
   const fullExternalDate = formatFullDateSpanish(externalEvalDate);
 
   const paragraphs = [
-    `El centro ${pdfCenterTitle} inició la autoevaluación en ${startMonthYear}, según los criterios propuestos en el programa de certificación de “Centros de Atención a las Adicciones Comprometidos contra la Violencia de Género” (CAACVG) y tomando como referencia los “Criterios de evaluación CAACVG”.`,
+    `${/^Centro\b/.test(pdfCenterTitle) ? 'El' : 'El centro'} ${pdfCenterTitle} inició la autoevaluación en ${startMonthYear}, según los criterios propuestos en el programa de certificación de “Centros de Atención a las Adicciones Comprometidos contra la Violencia de Género” (CAACVG) y tomando como referencia los “Criterios de evaluación CAACVG”.`,
     `Las personas responsables de la entidad relacionados con el proyecto son:`,
     `Dirección Gerencia:`,
     `${centerManagement}`,
@@ -3316,7 +3351,9 @@ async function generateCoverPdf() {
     doc.addPage();
     drawReportHeaderFooter();
 
-    const text = `Por cumplirse todos los estándares esenciales y sumar el mayor número de fortalezas, el centro ${pdfCenterTitle} destaca en el criterio:`;
+    const text = /^Centro\b/.test(pdfCenterTitle)
+      ? `Por cumplirse todos los estándares esenciales y sumar el mayor número de fortalezas, el ${pdfCenterTitle} destaca en el criterio:`
+      : `Por cumplirse todos los estándares esenciales y sumar el mayor número de fortalezas, el centro ${pdfCenterTitle} destaca en el criterio:`;
     const textY = 62;
 
     doc.setFont('helvetica', 'italic');
