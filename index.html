@@ -1075,7 +1075,7 @@
     </div>
     <div class="app-header-center">
       <div class="app-header-title">Gestor de informes</div>
-      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.10</span></div>
+      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.11</span></div>
     </div>
     <div class="app-header-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
       <div id="userNameDisplay" style="font-size:12px;color:#666;text-align:right;min-height:16px;width:100%;"></div>
@@ -1525,10 +1525,10 @@ function clean(s='') { return s.replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim(
 function cleanLeadingPunctuation(s='') {
   return clean(String(s).replace(/^[:.\-–—\s]+/, ''));
 }
-function isCriterion(style, text) { return style === 'Ttulo3' || /^\d+\.\s/.test(text); }
+function isCriterion(style, text) { return style === 'Ttulo3' || style === 'Heading1' || /^\d+\.\s/.test(text); }
 function isStandard(style, text) { return style === 'Ttulo4' || /^Estándar\s+\d+\.\d+/.test(text); }
 function isSectionLabel(style, text) { return style === 'Ttulo6' || /^(Áreas de mejora|Area de Mejora|Fortalezas)$/i.test(text); }
-function isEOHeader(style, text) { return style === 'Ttulo5' || /^Elementos orientativos$/i.test(text); }
+function isEOHeader(style, text) { return style === 'Ttulo5' || style === 'Heading2' || /^Elementos orientativos$/i.test(text); }
 function isEOText(text) { return /^\d+\.\d+\.\d+\./.test(text); }
 
 function parseTable(tbl) {
@@ -2002,11 +2002,11 @@ async function parseDocx(arrayBuffer, fileName='') {
     const local = child.localName || child.nodeName.split(':').pop();
 
     if (local === 'p') {
-      const text = clean(txt(child));
+      const text = clean(txt(child)).replace(/^\d{6,}([A-Za-záéíóúüñÁÉÍÓÚÜÑ])/, '$1');
       if (!text) continue;
       const style = styleOfP(child);
 
-      if (!result.meta.title && (style === 'Ttulo1' || /Informe de evaluación/i.test(text))) {
+      if (!result.meta.title && (style === 'Ttulo1' || style === 'Title' || /Informe de evaluación/i.test(text))) {
         result.meta.title = text;
         continue;
       }
