@@ -1075,7 +1075,7 @@
     </div>
     <div class="app-header-center">
       <div class="app-header-title">Gestor de informes</div>
-      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.20</span></div>
+      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.41</span></div>
     </div>
     <div class="app-header-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
       <div id="userNameDisplay" style="font-size:12px;color:#666;text-align:right;min-height:16px;width:100%;"></div>
@@ -1369,6 +1369,9 @@ document.getElementById('fileInput').addEventListener('change', async (ev) => {
     const arrayBuffer = await file.arrayBuffer();
     currentData = await parseDocx(arrayBuffer, file.name);
 
+
+
+
     currentData.evaluationOutcome = '';
     currentData.evaluationOutcomeManual = false;
     enableFilters(true);
@@ -1537,7 +1540,21 @@ function parseTable(tbl) {
     qa(tr, 'w\\:tc, tc').map(tc => clean(txt(tc)))
   );
   if (!rows.length) return null;
-  return { headers: rows[0] || [], values: rows[1] || [] };
+  const headers = rows[0] || [];
+  const values = rows[1] || [];
+  // Formato Álora: col0=sección(AM/Fortalezas), col1=Evaluación, col2=Justificación
+  const col0 = String(headers[0] || '').toLowerCase();
+  if (col0.includes('autoevaluaci')) {
+    const seccion = String(values[0] || '').toLowerCase();
+    const isAM = /área|area|mejora/i.test(seccion);
+    const isFZ = /fortaleza/i.test(seccion);
+    return {
+      headers,
+      values: ['', values[1] || '', values[2] || ''],
+      seccion: isAM ? 'AM' : isFZ ? 'FORTALEZA' : null
+    };
+  }
+  return { headers, values };
 }
 function classifyEval(value='') {
   const v = value.toLowerCase();
@@ -1989,6 +2006,9 @@ async function parseDocx(arrayBuffer, fileName='') {
   const xmlFile = zip.file('word/document.xml');
   if (!xmlFile) throw new Error('El archivo no parece ser un DOCX válido.');
   const xml = await xmlFile.async('string');
+  // This document uses mc:AlternateContent floating text boxes for standard content.
+  // DOMParser reorganizes these incorrectly, so we parse the raw XML directly.
+  const _useRawParse = /<mc:AlternateContent/.test(xml) && /<mc:Choice/.test(xml);
   const doc = xmlToDoc(xml);
   const body = q(doc, 'w\\:body, body');
   if (!body) throw new Error('No se ha encontrado contenido en el DOCX.');
@@ -1998,6 +2018,28 @@ async function parseDocx(arrayBuffer, fileName='') {
     n.nodeName.endsWith(':p') || n.nodeName.endsWith(':tbl')
   );
 
+  // For documents using AlternateContent floating boxes, extract paragraphs from raw XML
+  // because DOMParser reorganizes AlternateContent incorrectly
+  let rawParas = null;
+  if (_useRawParse) {
+    rawParas = [];
+    const pRe = /<w:p[ >][\s\S]*?<\/w:p>/g;
+    let pm;
+    while ((pm = pRe.exec(xml)) !== null) {
+      const styleM = /w:pStyle w:val="([^"]+)"/.exec(pm[0]);
+      const style = styleM ? styleM[1] : 'Normal';
+      // Extract w:t NOT inside mc:AlternateContent
+      let rawText = pm[0];
+      // Remove AlternateContent sub-blocks
+      rawText = rawText.replace(/<mc:AlternateContent[\s\S]*?<\/mc:AlternateContent>/g, '');
+      let text = '';
+      const wtRe = /<w:t[^>]*>([^<]*)<\/w:t>/g; let tm;
+      while ((tm = wtRe.exec(rawText)) !== null) text += tm[1];
+      text = text.trim().replace(/^\d{6,}([A-Za-záéíóúüñÁÉÍÓÚÜÑ])/, '$1');
+      rawParas.push({ style, text });
+    }
+  }
+
   const result = { meta: { fileName, title:'', source:'docx' }, criteria: [] };
   let currentCriterion = null;
   let currentStandard = null;
@@ -2005,15 +2047,42 @@ async function parseDocx(arrayBuffer, fileName='') {
   let mode = 'STANDARD';
   let lastSection = null;
 
-  for (const child of children) {
-    const local = child.localName || child.nodeName.split(':').pop();
+  // Use rawParas iterator if available, otherwise DOM children
+  const _iterItems = rawParas
+    ? rawParas.map(p => ({ _raw: p }))
+    : children.map(c => ({ _dom: c }));
 
-    if (local === 'p') {
-      const text = clean(txt(child)).replace(/^\d{6,}([A-Za-záéíóúüñÁÉÍÓÚÜÑ])/, '$1');
+  for (const item of _iterItems) {
+    let local, text, style;
+    if (item._raw) {
+      local = 'p';
+      text = item._raw.text;
+      style = item._raw.style;
+    } else {
+      const child = item._dom;
+      local = child.localName || child.nodeName.split(':').pop();
+      if (local !== 'p') {
+        // Handle tables from DOM
+        if (local === 'tbl') {
+          const info = parseTable(child);
+          if (!info || !currentStandard) continue;
+          const target = currentEO && mode === 'EO' ? currentEO : currentStandard;
+          if (!target.evaluation) target.evaluation = classifyEval(info.values[1] || '');
+          if (!target.justification) target.justification = info.values[2] || '';
+          if (!info.values[0]) target.autoevaluacion = '';
+          else target.autoevaluacion = info.values[0];
+        }
+        continue;
+      }
+      text = clean(txt(child)).replace(/^\d{6,}([A-Za-záéíóúüñÁÉÍÓÚÜÑ])/, '$1');
+      style = styleOfP(child);
+    }
+    { // scope for 'local === p' processing
+
       if (!text || /^\d+$/.test(text)) continue;
       // Ignorar artefactos de cabecera de tabla del generador de Álora
       if (/^(Autoevaluaci[oó]n|Evaluaci[oó]n|Justificaci[oó]n)/.test(text) && /Autoevaluaci/.test(text) && /Evaluaci/.test(text)) continue;
-      const style = styleOfP(child);
+      // style is already set above (from raw or DOM)
 
       if (!result.meta.title && (style === 'Ttulo1' || style === 'Title' || /Informe de evaluación/i.test(text))) {
         result.meta.title = text;
@@ -2032,13 +2101,17 @@ async function parseDocx(arrayBuffer, fileName='') {
         continue;
       }
       if (isStandard(style, text)) {
-        const newCode = text.replace(/^Estándar\s+/i,'').trim().replace(/\.+$/,'');
+        const _rawCode = text.replace(/^Estándar\s+/i,'').trim();
+        const _numMatch = _rawCode.match(/^(\d+\.\d+)/);
+        const newCode = _numMatch ? _numMatch[1] : _rawCode.replace(/\.+$/,'');
+        // Store the full description from same paragraph if present (format: "X.Y: description")
+        const _inlineDesc = _rawCode.replace(/^\d+\.\d+\.?\s*:?\s*/, '').trim();
         // Skip duplicate: same code as the active standard (artifact of some DOCX generators)
         if (currentStandard && currentStandard.code === newCode) { mode = 'STANDARD'; continue; }
         currentStandard = {
           code: newCode,
-          heading: text,
-          description: '',
+          heading: `Estándar ${newCode}`,
+          description: _inlineDesc || '',
           essentiality: '',
           autoevaluacion: '',
           evaluation: '',
@@ -2070,6 +2143,22 @@ async function parseDocx(arrayBuffer, fileName='') {
       }
       if (/^Imprescindible$/i.test(text)) {
         if (currentEO) currentEO.essentiality = text;
+        continue;
+      }
+      if (/^(Cumple|No cumple|Pendiente)/i.test(text)) {
+        const evalMatch = text.match(/^(Cumple parcialmente|No cumple|Cumple|Pendiente)(.*)/i);
+        if (evalMatch) {
+          const evalVal = evalMatch[1].trim();
+          const rest = evalMatch[2].trim();
+          const target = currentEO && mode === 'EO' ? currentEO : currentStandard;
+          if (target && !target.evaluation) {
+            target.evaluation = classifyEval(evalVal);
+            if (rest && !target.justification) target.justification = rest;
+          } else if (target && rest && !target.justification) {
+            // Second occurrence: only take the trailing text as justification, not the eval prefix
+            target.justification = rest;
+          }
+        }
         continue;
       }
       if (isEOHeader(style, text)) {
@@ -2113,18 +2202,40 @@ async function parseDocx(arrayBuffer, fileName='') {
         continue;
       }
 
-      if (!currentStandard.description) currentStandard.description = cleanLeadingPunctuation(text);
-    }
+      // Free text: assign to justification if description/text already set
+      {
+        const _freeTarget = currentEO && mode === 'EO' ? currentEO : currentStandard;
+        if (_freeTarget) {
+          const _hasDesc = _freeTarget.description || _freeTarget.text;
+          if (!_hasDesc) {
+            if (_freeTarget.description !== undefined) _freeTarget.description = cleanLeadingPunctuation(text);
+            else _freeTarget.text = cleanLeadingPunctuation(text);
+          } else if (!_freeTarget.justification && text.length > 3) {
+            _freeTarget.justification = text;
+          }
+        }
+      }
+    } // end local === 'p'
 
-    if (local === 'tbl') {
+    if (!item._raw && local === 'tbl') {
+      const child = item._dom;
       const info = parseTable(child);
       if (!info || !currentStandard) continue;
       const target = currentEO && mode === 'EO' ? currentEO : currentStandard;
-      target.autoevaluacion = info.values[0] || '';
-      target.evaluation = classifyEval(info.values[1] || '');
-      target.justification = info.values[2] || '';
+      if (!target.evaluation) target.evaluation = classifyEval(info.values[1] || '');
+      if (!target.justification) target.justification = info.values[2] || '';
+      if (!info.values[0]) target.autoevaluacion = '';
+      else target.autoevaluacion = info.values[0];
+      if (info.seccion === 'AM' && target.justification) {
+        if (!/^(Autoevaluaci[oó]n|Evaluaci[oó]n|Justificaci[oó]n)/.test(target.justification))
+          target.areasMejora = target.areasMejora || [];
+      }
+      if (info.seccion === 'FORTALEZA' && target.justification) {
+        if (!/^(Autoevaluaci[oó]n|Evaluaci[oó]n|Justificaci[oó]n)/.test(target.justification))
+          target.fortalezas = target.fortalezas || [];
+      }
     }
-  }
+  } // end _iterItems loop
 
   if (!result.criteria.length) {
     throw new Error('No se han detectado criterios o estándares. Revisa el formato del DOCX.');
@@ -3216,7 +3327,7 @@ async function generateCoverPdf() {
     const headerH = 12;
     const pad = 3.5;
 
-    let remainingLines = doc.splitTextToSize(String(item.justification || ''), colW[2] - pad * 2);
+    let remainingLines = doc.splitTextToSize(String(item.justification || '').replace(/^(Cumple parcialmente|No cumple|Cumple|Pendiente)\s*/i,''), colW[2] - pad * 2);
     if (!remainingLines.length) remainingLines = [''];
     const purpleThin = [180, 156, 217];
     let firstChunk = true;
@@ -3980,7 +4091,7 @@ function renderStandard(s) {
   const eoBlocks = (s.eos || []).map(eo => `
     <div class="eo-item">
       <div class="eo-title-line">
-        <span class="eo-code">Elemento orientativo ${escapeHtml(eo.code || '')}</span>
+        <span class="eo-code">Elemento orientativo ${escapeHtml((() => { const _m = String(eo.code||'').match(/^(\d+\.\d+\.\d+)/); return _m ? _m[1] : eo.code||''; })())}</span>
         ${eo.essentiality ? `<span class="badge ${badgeClass(eo.essentiality)}">${escapeHtml(eo.essentiality)}</span>` : ''}
       </div>
       ${eo.text ? `<div class="eo-text">${escapeHtml(cleanLeadingPunctuation(eo.text || ''))}</div>` : ''}
@@ -3994,7 +4105,7 @@ function renderStandard(s) {
     <article class="standard-card">
       <div class="standard-title-wrap">
         <div class="standard-title-line">
-          <h4 class="standard-heading">Estándar ${escapeHtml((s.code || '').replace(/^Estándar\s*/i,''))}</h4>
+          <h4 class="standard-heading">Estándar ${escapeHtml((() => { const _m = String(s.code||'').match(/^(\d+\.\d+)/); return _m ? _m[1] : (s.code||'').replace(/^Estándar\s*/i,''); })())}</h4>
           ${s.essentiality ? `<span class="badge ${badgeClass(s.essentiality)}">${escapeHtml(s.essentiality)}</span>` : ''}
         </div>
         ${desc ? `<div class="standard-description">${escapeHtml(desc)}</div>` : ''}
@@ -4096,7 +4207,7 @@ function renderEvaluationTable(item) {
             data-code="${escapeHtml(item.code || '')}"
             placeholder="Editar justificación"
             rows="2"
-          >${escapeHtml(item.justification || '')}</textarea>
+          >${escapeHtml((item.justification||'').replace(/^(Cumple parcialmente|No cumple|Cumple|Pendiente)\s*/i,''))}</textarea>
         </td>
       </tr>
     </table>
