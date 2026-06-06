@@ -1075,7 +1075,7 @@
     </div>
     <div class="app-header-center">
       <div class="app-header-title">Gestor de informes</div>
-      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.11</span></div>
+      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.20</span></div>
     </div>
     <div class="app-header-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
       <div id="userNameDisplay" style="font-size:12px;color:#666;text-align:right;min-height:16px;width:100%;"></div>
@@ -1368,6 +1368,7 @@ document.getElementById('fileInput').addEventListener('change', async (ev) => {
     await ensureRequiredLibraries();
     const arrayBuffer = await file.arrayBuffer();
     currentData = await parseDocx(arrayBuffer, file.name);
+
     currentData.evaluationOutcome = '';
     currentData.evaluationOutcomeManual = false;
     enableFilters(true);
@@ -1650,6 +1651,12 @@ function validateVersionPayload(payload) {
 
 const VERSION_STORAGE_KEY = 'informeCAACVG_versions';
 const EDITABLE_STORAGE_KEY = 'informeCAACVG_editable';
+
+// Estándares esenciales según el Manual CAACVG (tabla resumen pág. 80)
+const ESSENTIAL_STANDARD_CODES = new Set([
+  '1.1','1.2','2.1','2.2','3.1','4.1','4.2','4.3','4.5','4.6',
+  '5.1','5.2','5.4','5.5','6.1','6.3'
+]);
 
 function getVersions() {
   try {
@@ -2003,7 +2010,9 @@ async function parseDocx(arrayBuffer, fileName='') {
 
     if (local === 'p') {
       const text = clean(txt(child)).replace(/^\d{6,}([A-Za-záéíóúüñÁÉÍÓÚÜÑ])/, '$1');
-      if (!text) continue;
+      if (!text || /^\d+$/.test(text)) continue;
+      // Ignorar artefactos de cabecera de tabla del generador de Álora
+      if (/^(Autoevaluaci[oó]n|Evaluaci[oó]n|Justificaci[oó]n)/.test(text) && /Autoevaluaci/.test(text) && /Evaluaci/.test(text)) continue;
       const style = styleOfP(child);
 
       if (!result.meta.title && (style === 'Ttulo1' || style === 'Title' || /Informe de evaluación/i.test(text))) {
@@ -2011,7 +2020,10 @@ async function parseDocx(arrayBuffer, fileName='') {
         continue;
       }
       if (isCriterion(style, text)) {
-        currentCriterion = { code: text.split('.')[0], title: text, standards: [] };
+        const newCriterionCode = text.split('.')[0].trim();
+        // Skip duplicate criterion
+        if (currentCriterion && currentCriterion.code === newCriterionCode) continue;
+        currentCriterion = { code: newCriterionCode, title: text, standards: [] };
         result.criteria.push(currentCriterion);
         currentStandard = null;
         currentEO = null;
@@ -2020,8 +2032,11 @@ async function parseDocx(arrayBuffer, fileName='') {
         continue;
       }
       if (isStandard(style, text)) {
+        const newCode = text.replace(/^Estándar\s+/i,'').trim().replace(/\.+$/,'');
+        // Skip duplicate: same code as the active standard (artifact of some DOCX generators)
+        if (currentStandard && currentStandard.code === newCode) { mode = 'STANDARD'; continue; }
         currentStandard = {
-          code: text.replace(/^Estándar\s+/i,'').trim(),
+          code: newCode,
           heading: text,
           description: '',
           essentiality: '',
@@ -2042,7 +2057,10 @@ async function parseDocx(arrayBuffer, fileName='') {
 
       if (text.startsWith(':')) {
         const stripped = cleanLeadingPunctuation(text);
-        currentStandard.description = clean((currentStandard.description + ' ' + stripped).trim());
+        // Avoid duplicating description (some DOCX generators repeat paragraphs)
+        if (!currentStandard.description) {
+          currentStandard.description = clean(stripped);
+        }
         continue;
       }
       if (/^(Esencial|No esencial)$/i.test(text)) {
@@ -2081,13 +2099,17 @@ async function parseDocx(arrayBuffer, fileName='') {
       }
 
       if (lastSection === 'AM') {
-        if (currentEO) currentEO.areasMejora.push(text);
-        else currentStandard.areasMejora.push(text);
+        if (!/^(Autoevaluaci[oó]n|Evaluaci[oó]n|Justificaci[oó]n)/.test(text)) {
+          if (currentEO) currentEO.areasMejora.push(text);
+          else currentStandard.areasMejora.push(text);
+        }
         continue;
       }
       if (lastSection === 'FORTALEZA') {
-        if (currentEO) currentEO.fortalezas.push(text);
-        else currentStandard.fortalezas.push(text);
+        if (!/^(Autoevaluaci[oó]n|Evaluaci[oó]n|Justificaci[oó]n)/.test(text)) {
+          if (currentEO) currentEO.fortalezas.push(text);
+          else currentStandard.fortalezas.push(text);
+        }
         continue;
       }
 
@@ -2796,7 +2818,7 @@ async function generateCoverPdf() {
   (currentData?.criteria || []).forEach(c => (c.standards || []).forEach(s => allStandards.push(s)));
 
   const isNoCumple = (val='') => String(val || '').toLowerCase().includes('no cumple');
-  const isEssential = (s) => String(s.essentiality || '').toLowerCase().includes('esencial');
+  const isEssential = (s) => { const m = String(s.code || '').match(/^(\d+\.\d+)/); return m ? ESSENTIAL_STANDARD_CODES.has(m[1]) : false; };
 
   const essentialStandards = allStandards.filter(isEssential);
   const nonEssentialStandards = allStandards.filter(s => !isEssential(s));
@@ -2987,8 +3009,29 @@ async function generateCoverPdf() {
   doc.text('Tabla 2. Cumplimiento de estándares por criterios.', table2X + 2, caption2Y);
 
   // ===== PÁGINA 5 EN ADELANTE: CRITERIOS =====
+  // Mapa para documentos con criterios por nombre (ej. Álora) en lugar de número
+  const CRITERION_NAME_TO_NUM = {
+    'formacion':1,'formación':1,'formation':1,
+    'estrategia':2,'entorno':2,
+    'deteccion':3,'detección':3,'detection':3,
+    'intervencion':4,'intervención':4,'intervention':4,
+    'coordinacion':5,'coordinación':5,'coordination':5,
+    'seguimiento':6,'follow':6
+  };
+
+  function normalizeCriterionCode(code) {
+    const c = String(code || '').trim();
+    if (/^\d+$/.test(c)) return c; // ya es numérico
+    const key = c.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    for (const [k,v] of Object.entries(CRITERION_NAME_TO_NUM)) {
+      const kn = k.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      if (key.startsWith(kn) || kn.startsWith(key)) return String(v);
+    }
+    return c;
+  }
+
   function criterionColor(code) {
-    const c = String(code || '');
+    const c = normalizeCriterionCode(code);
     if (c === '1') return [214, 166, 185];
     if (c === '2') return [180, 156, 217];
     if (c === '3') return [118, 65, 162];
@@ -3344,8 +3387,9 @@ async function generateCoverPdf() {
       .replace(/^\s*\d+\.\s*/, '')
       .trim()
       .toUpperCase();
+    const _normCode = normalizeCriterionCode(selectedCriterionCode);
     const selectedCriterionColor = criterionColor(selectedCriterionCode);
-    const criterionLogo = bundledPngLogoData(`pdfLogoCriterion${selectedCriterionCode}`);
+    const criterionLogo = bundledPngLogoData(`pdfLogoCriterion${_normCode}`);
 
     reportPageNumber += 1;
     doc.addPage();
@@ -3709,8 +3753,8 @@ function computeSummaryStats(data) {
 
   const criteriaCards = (data.criteria || []).map(c => {
     const standardsList = c.standards || [];
-    const essentials = standardsList.filter(s => String(s.essentiality || '').toLowerCase().includes('esencial'));
-    const nonEssentials = standardsList.filter(s => !String(s.essentiality || '').toLowerCase().includes('esencial'));
+    const essentials = standardsList.filter(s => { const m = String(s.code || '').match(/^(\d+\.\d+)/); return m ? ESSENTIAL_STANDARD_CODES.has(m[1]) : false; });
+    const nonEssentials = standardsList.filter(s => { const m = String(s.code || '').match(/^(\d+\.\d+)/); return !(m && ESSENTIAL_STANDARD_CODES.has(m[1])); });
 
     const esencialesCumplen = essentials.filter(s => !String(s.evaluation || '').toLowerCase().includes('no cumple')).length;
     const esencialesNoCumplen = essentials.filter(s => String(s.evaluation || '').toLowerCase().includes('no cumple')).length;
