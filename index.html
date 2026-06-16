@@ -1075,7 +1075,7 @@
     </div>
     <div class="app-header-center">
       <div class="app-header-title">Gestor de informes</div>
-      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.41</span></div>
+      <div class="app-header-subtitle">Centros de Atención a las Adicciones Comprometidos<br>contra la Violencia de Género <span style="font-size:12px;color:#888;margin-left:6px;">v1.43</span></div>
     </div>
     <div class="app-header-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
       <div id="userNameDisplay" style="font-size:12px;color:#666;text-align:right;min-height:16px;width:100%;"></div>
@@ -1612,6 +1612,7 @@ function mergeEditableDraftIntoCurrentData(preferExisting=true) {
     'evaluator',
     'centerManagement',
     'certificationResponsible',
+    'unitDirection',
     'selfEvalStartDate',
     'externalEvalDate'
   ];
@@ -1647,6 +1648,7 @@ function validateVersionPayload(payload) {
     evaluator: String(payload.evaluator || '').trim(),
     centerManagement: String(payload.centerManagement || '').trim(),
     certificationResponsible: String(payload.certificationResponsible || '').trim(),
+    unitDirection: String(payload.unitDirection || '').trim(),
     selfEvalStartDate: String(payload.selfEvalStartDate || '').trim(),
     externalEvalDate: String(payload.externalEvalDate || '').trim(),
     evaluationOutcome: String(payload.evaluationOutcome || '').trim(),
@@ -1747,6 +1749,7 @@ function buildCurrentVersionPayload() {
     evaluator: String(document.getElementById('evaluatorInput')?.value || currentData?.evaluator || '').trim(),
     centerManagement: String(document.getElementById('centerManagementInput')?.value || currentData?.centerManagement || '').trim(),
     certificationResponsible: String(document.getElementById('certificationResponsibleInput')?.value || currentData?.certificationResponsible || '').trim(),
+    unitDirection: String(document.getElementById('unitDirectionInput')?.value || currentData?.unitDirection || '').trim(),
     selfEvalStartDate: String(document.getElementById('selfEvalStartDateInput')?.value || currentData?.selfEvalStartDate || '').trim(),
     externalEvalDate: String(document.getElementById('externalEvalDateInput')?.value || currentData?.externalEvalDate || '').trim(),
     evaluationOutcome: String(currentData?.evaluationOutcome || '').trim(),
@@ -1772,6 +1775,7 @@ function applyVersionPayload(payload) {
   currentData.evaluator = String(payload.evaluator || '').trim();
   currentData.centerManagement = String(payload.centerManagement || '').trim();
   currentData.certificationResponsible = String(payload.certificationResponsible || '').trim();
+  currentData.unitDirection = String(payload.unitDirection || '').trim();
   currentData.selfEvalStartDate = String(payload.selfEvalStartDate || '').trim();
   currentData.externalEvalDate = String(payload.externalEvalDate || '').trim();
   currentData.evaluationOutcome = String(payload.evaluationOutcome || '').trim();
@@ -1865,6 +1869,7 @@ function saveLocalData() {
       evaluator: String(document.getElementById('evaluatorInput')?.value || currentData?.evaluator || '').trim(),
       centerManagement: String(document.getElementById('centerManagementInput')?.value || currentData?.centerManagement || '').trim(),
       certificationResponsible: String(document.getElementById('certificationResponsibleInput')?.value || currentData?.certificationResponsible || '').trim(),
+      unitDirection: String(document.getElementById('unitDirectionInput')?.value || currentData?.unitDirection || '').trim(),
       selfEvalStartDate: String(document.getElementById('selfEvalStartDateInput')?.value || currentData?.selfEvalStartDate || '').trim(),
       externalEvalDate: String(document.getElementById('externalEvalDateInput')?.value || currentData?.externalEvalDate || '').trim(),
       highlightedCriterionCode: String(currentData?.highlightedCriterionCode || '').trim(),
@@ -1951,6 +1956,7 @@ document.getElementById('loadVersionInput').addEventListener('change', async (ev
       evaluator: String(payload.evaluator || ''),
       centerManagement: String(payload.centerManagement || ''),
       certificationResponsible: String(payload.certificationResponsible || ''),
+      unitDirection: String(payload.unitDirection || ''),
       selfEvalStartDate: String(payload.selfEvalStartDate || ''),
       externalEvalDate: String(payload.externalEvalDate || ''),
       evaluationOutcome: String(payload.evaluationOutcome || ''),
@@ -2300,6 +2306,7 @@ function renderStructuredTitle(rawTitle='') {
   const evaluator = String(currentData?.evaluator || '').trim();
   const centerManagement = String(currentData?.centerManagement || '').trim();
   const certificationResponsible = String(currentData?.certificationResponsible || '').trim();
+  const unitDirection = String(currentData?.unitDirection || '').trim();
   const selfEvalStartDate = String(currentData?.selfEvalStartDate || '').trim();
   const externalEvalDate = String(currentData?.externalEvalDate || '').trim();
 
@@ -2367,6 +2374,10 @@ function renderStructuredTitle(rawTitle='') {
                   <label for="certificationResponsibleInput">Responsable del centro para el seguimiento de la certificación *</label>
                   <input id="certificationResponsibleInput" class="code-box" type="text" value="${escapeHtml(certificationResponsible)}">
                 </div>
+                <div class="title-editor-row">
+                  <label for="unitDirectionInput">Dirección de la Unidad</label>
+                  <input id="unitDirectionInput" class="code-box" type="text" value="${escapeHtml(unitDirection)}">
+                </div>
               </div>
             </details>
           </div>
@@ -2396,6 +2407,7 @@ function syncEditableHeader() {
   const leadEvaluatorInput = document.getElementById('leadEvaluatorInput');
   const centerManagementInput = document.getElementById('centerManagementInput');
   const certificationResponsibleInput = document.getElementById('certificationResponsibleInput');
+  const unitDirectionInput = document.getElementById('unitDirectionInput');
   const selfEvalStartDateInput = document.getElementById('selfEvalStartDateInput');
   const externalEvalDateInput = document.getElementById('externalEvalDateInput');
 
@@ -2404,6 +2416,7 @@ function syncEditableHeader() {
   const leadEvaluatorVal = String(leadEvaluatorInput?.value ?? currentData?.leadEvaluator ?? '');
   const centerManagementVal = String(centerManagementInput?.value ?? currentData?.centerManagement ?? '');
   const certificationResponsibleVal = String(certificationResponsibleInput?.value ?? currentData?.certificationResponsible ?? '');
+  const unitDirectionVal = String(unitDirectionInput?.value ?? currentData?.unitDirection ?? '');
   const selfEvalStartDateVal = String(selfEvalStartDateInput?.value ?? currentData?.selfEvalStartDate ?? '');
   const externalEvalDateVal = String(externalEvalDateInput?.value ?? currentData?.externalEvalDate ?? '');
 
@@ -2412,6 +2425,7 @@ function syncEditableHeader() {
   if (leadEvaluatorInput && leadEvaluatorInput.value !== leadEvaluatorVal) leadEvaluatorInput.value = leadEvaluatorVal;
   if (centerManagementInput && centerManagementInput.value !== centerManagementVal) centerManagementInput.value = centerManagementVal;
   if (certificationResponsibleInput && certificationResponsibleInput.value !== certificationResponsibleVal) certificationResponsibleInput.value = certificationResponsibleVal;
+  if (unitDirectionInput && unitDirectionInput.value !== unitDirectionVal) unitDirectionInput.value = unitDirectionVal;
   if (selfEvalStartDateInput && selfEvalStartDateInput.value !== selfEvalStartDateVal) selfEvalStartDateInput.value = selfEvalStartDateVal;
   if (externalEvalDateInput && externalEvalDateInput.value !== externalEvalDateVal) externalEvalDateInput.value = externalEvalDateVal;
 
@@ -2421,6 +2435,7 @@ function syncEditableHeader() {
     currentData.leadEvaluator = leadEvaluatorVal;
     currentData.centerManagement = centerManagementVal;
     currentData.certificationResponsible = certificationResponsibleVal;
+    currentData.unitDirection = unitDirectionVal;
     currentData.selfEvalStartDate = selfEvalStartDateVal;
     currentData.externalEvalDate = externalEvalDateVal;
   }
@@ -2677,6 +2692,7 @@ async function generateCoverPdf() {
   const evaluator = String((document.getElementById('evaluatorInput')?.value || currentData.evaluator || '')).trim();
   const centerManagement = String((document.getElementById('centerManagementInput')?.value || currentData.centerManagement || '')).trim();
   const certificationResponsible = String((document.getElementById('certificationResponsibleInput')?.value || currentData.certificationResponsible || '')).trim();
+  const unitDirection = String((document.getElementById('unitDirectionInput')?.value || currentData.unitDirection || '')).trim();
   const selfEvalStartDate = String((document.getElementById('selfEvalStartDateInput')?.value || currentData.selfEvalStartDate || '')).trim();
   const externalEvalDate = String((document.getElementById('externalEvalDateInput')?.value || currentData.externalEvalDate || '')).trim();
   const pdfEvaluationOutcome = String((document.getElementById('outcomeSelect')?.value || currentData.evaluationOutcome || '')).trim();
@@ -2881,6 +2897,7 @@ async function generateCoverPdf() {
     `${centerManagement}`,
     `Responsable del centro para el seguimiento de la certificación:`,
     `${certificationResponsible}`,
+    ...(unitDirection ? [`Dirección de la Unidad:`, `${unitDirection}`] : []),
     `Finalizada la autoevaluación, se realiza la visita de evaluación externa al centro el ${fullExternalDate}, según la agenda acordada con la Dirección de la entidad y disponible en su proyecto para su conocimiento.`,
     (() => {
       const esMujer = /^Dña\./i.test(leadEvaluator);
@@ -2891,10 +2908,18 @@ async function generateCoverPdf() {
     `La Agencia de Calidad Sanitaria de Andalucía garantiza el mantenimiento de la confidencialidad de la información obtenida durante el proceso de certificación y no asume ninguna responsabilidad relativa a la difusión de esta información por parte de los destinatarios de la misma. Cualquier manipulación de este informe está estrictamente prohibida.`
   ];
 
+  // Líneas que forman parte del bloque "responsables" (espaciado reducido entre ellas)
+  const _responsableLines = new Set([
+    'Las personas responsables de la entidad relacionados con el proyecto son:',
+    'Dirección Gerencia:', centerManagement,
+    'Responsable del centro para el seguimiento de la certificación:', certificationResponsible,
+    'Dirección de la Unidad:', unitDirection
+  ]);
   paragraphs.forEach((p, i) => {
     const lines = doc.splitTextToSize(p, pageW - margin * 2);
     drawJustifiedPdfParagraph(lines, margin, y3, pageW - margin * 2, 5.8, false);
-    y3 += lines.length * 5.8 + (i >= 1 && i <= 5 ? 2.5 : 5);
+    const isResponsableBlock = _responsableLines.has(p) && i > 0 && i < paragraphs.length - 2;
+    y3 += lines.length * 5.8 + (isResponsableBlock ? 2.5 : 5);
   });
 
   // Cuarta página
